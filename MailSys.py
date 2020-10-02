@@ -1,42 +1,75 @@
 import wx
+from wx.lib.pubsub import pub
 
-def click_button_1(event):
-    frame.SetStatusText('Click! button_1')
 
-def click_button_2(event):
-    frame.SetStatusText('Click! button_2')
+class OtherFrame(wx.Frame):
+    """"""
 
-def click_button(event):
-    if event.GetId() == 3333:
-        frame.SetStatusText('Click! button_3')
-    elif event.GetId() == 4444:
-        frame.SetStatusText('Click! button_4')
+    def __init__(self):
+        """Constructor"""
+        wx.Frame.__init__(self, None, wx.ID_ANY, "Secondary Frame")
+        panel = wx.Panel(self)
 
-application = wx.App()
-frame = wx.Frame(None, wx.ID_ANY, 'テストフレーム', size=(300, 200))
-frame.CreateStatusBar()
+        msg = "Enter a Message to send to the main frame"
+        instructions = wx.StaticText(panel, label=msg)
+        self.msgTxt = wx.TextCtrl(panel, value="")
+        closeBtn = wx.Button(panel, label="Send and Close")
+        closeBtn.Bind(wx.EVT_BUTTON, self.onSendAndClose)
 
-panel = wx.Panel(frame, wx.ID_ANY)
-panel.SetBackgroundColour('#AFAFAF')
-label = wx.StaticText(panel, -1, '作成したいレポートを選択してください。', pos=(10, 10))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        flags = wx.ALL|wx.CENTER
+        sizer.Add(instructions, 0, flags, 5)
+        sizer.Add(self.msgTxt, 0, flags, 5)
+        sizer.Add(closeBtn, 0, flags, 5)
+        panel.SetSizer(sizer)
 
-button_1 = wx.Button(panel, wx.ID_ANY, 'ボタン１')
-button_2 = wx.Button(panel, wx.ID_ANY, 'ボタン２')
-button_3 = wx.Button(panel, 3333, 'ボタン３')
-button_4 = wx.Button(panel, 4444, 'ボタン４')
+    def onSendAndClose(self, event):
+        """
+        Send a message and close frame
+        """
+        msg = self.msgTxt.GetValue()
+        pub.sendMessage("panelListener", message=msg)
+        pub.sendMessage("panelListener", message="test2", arg2="2nd argument!")
+        self.Close()
 
-button_1.Bind(wx.EVT_BUTTON, click_button_1)
-button_2.Bind(wx.EVT_BUTTON, click_button_2)
-frame.Bind(wx.EVT_BUTTON, click_button, button_3)
-frame.Bind(wx.EVT_BUTTON, click_button, button_4)
+class MyPanel(wx.Panel):
+    """"""
 
-layout = wx.GridSizer(rows=2, cols=2, gap=(0, 0))
-layout.Add(button_1, 0, wx.GROW)
-layout.Add(button_2, 0, wx.GROW)
-layout.Add(button_3, 0, wx.GROW)
-layout.Add(button_4, 0, wx.GROW)
+    def __init__(self, parent):
+        """Constructor"""
+        wx.Panel.__init__(self, parent)
+        pub.subscribe(self.myListener, "panelListener")
 
-panel.SetSizer(layout)
+        btn = wx.Button(self, label="Open Frame")
+        btn.Bind(wx.EVT_BUTTON, self.onOpenFrame)
 
-frame.Show()
-application.MainLoop()
+    def myListener(self, message, arg2=None):
+        """
+        Listener function
+        """
+        print("Received the following message: " + message)
+        if arg2:
+            print("Received another arguments: " + str(arg2))
+
+    def onOpenFrame(self, event):
+        """
+        Opens secondary frame
+        """
+        frame = OtherFrame()
+        frame.Show()
+
+
+class MyFrame(wx.Frame):
+    """"""
+
+    def __init__(self):
+        """Constructor"""
+        wx.Frame.__init__(self, None, title="PubSub Tutorial")
+        panel = MyPanel(self)
+        self.Show()
+
+
+if __name__ == "__main__":
+    app = wx.App(False)
+    frame = MyFrame()
+    app.MainLoop()
